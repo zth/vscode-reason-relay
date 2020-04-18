@@ -1,0 +1,109 @@
+{
+  "name": "vscode-reason-relay",
+  "description": "Improve quality-of-life of using ReasonRelay with VSCode.",
+  "version": "0.1.0",
+  "main": "./build/extension.js",
+  "engines": {
+    "vscode": "^1.30.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn build",
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "build": "rm -rf build && tsc",
+    "build:watch": "tsc -w"
+  },
+  "author": "Gabriel Nordeborn <gabbe.nord@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zth/vscode-reason-relay"
+  },
+  "publisher": "GabrielNordeborn",
+  "activationEvents": [
+    "workspaceContains:/**/relay.config.js"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#171E26",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-reason-relay.add-fragment",
+        "title": "Add fragment",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
+      },
+      {
+        "command": "vscode-reason-relay.add-query",
+        "title": "Add query",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
+      },
+      {
+        "command": "vscode-reason-relay.add-mutation",
+        "title": "Add mutation",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
+      },
+      {
+        "command": "vscode-reason-relay.add-subscription",
+        "title": "Add subscription",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
+      }
+    ],
+    "languages": [
+      {
+        "id": "graphql",
+        "extensions": [
+          ".gql",
+          ".graphql",
+          ".graphqls"
+        ],
+        "aliases": [
+          "GraphQL"
+        ],
+        "configuration": "./language/language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "graphql",
+        "scopeName": "source.graphql",
+        "path": "./syntaxes/graphql.json"
+      },
+      {
+        "injectTo": [
+          "source.reason"
+        ],
+        "scopeName": "inline.graphql.reason",
+        "path": "./syntaxes/graphql.re.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.graphql": "graphql"
+        }
+      }
+    ]
+  },
+  "dependencies": {
+    "graphql": "^14.5.8",
+    "graphql-config": "3.0.0-rc.0",
+    "graphql-language-service-server": "2.4.0-alpha.4",
+    "graphql-language-service-types": "1.6.0-alpha.4",
+    "graphql-language-service-utils": "2.4.0-alpha.4",
+    "graphql-language-service-interface": "2.4.0-alpha.4",
+    "locate-character": "^2.0.5",
+    "prettier": "^1.19.1",
+    "typescript": "^3.7.3",
+    "vscode-languageclient": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^12.12.21",
+    "@types/prettier": "^1.19.0",
+    "vscode": "^1.1.36"
+  }
+}
