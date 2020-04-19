@@ -1,10 +1,10 @@
-import { GraphQLConfig, loadConfig } from "graphql-config";
+import { GraphQLConfig, loadConfigSync } from "graphql-config";
 import { RelayExtension } from "./configUtils";
 
-export async function createGraphQLConfig(
+export function createGraphQLConfig(
   workspaceBaseDir: string
-): Promise<GraphQLConfig | undefined> {
-  return loadConfig({
+): GraphQLConfig | undefined {
+  return loadConfigSync({
     configName: "relay",
     extensions: [RelayExtension],
     rootDir: workspaceBaseDir,

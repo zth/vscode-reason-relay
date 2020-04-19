@@ -16,7 +16,7 @@ const cache: WorkspaceSchemaCache = {};
 
 export const cacheControl = {
   async refresh(workspaceBaseDir: string) {
-    const config = await createGraphQLConfig(workspaceBaseDir);
+    const config = createGraphQLConfig(workspaceBaseDir);
 
     if (!config) {
       return false;

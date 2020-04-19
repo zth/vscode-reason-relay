@@ -1,6 +1,6 @@
 import * as path from "path";
-// @ts-ignore
 import * as fs from "fs";
+import { pascalCase } from "pascal-case";
 import {
   workspace,
   ExtensionContext,
@@ -1074,7 +1074,9 @@ function initCommands(context: ExtensionContext): void {
 
         fs.writeFileSync(
           newFilePath.fsPath,
-          `module ${typeInfo.parentTypeName}Fragment = [%relay.fragment 
+          `module ${pascalCase(
+            typeInfo.parentTypeName
+          )}Fragment = [%relay.fragment 
   {|
 ${newFragment
   .split("\n")
