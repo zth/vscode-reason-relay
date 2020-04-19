@@ -2,25 +2,53 @@
 
 Improve quality-of-life of using ReasonRelay with VSCode.
 
+## Setup
+
+> In addition to this extension, you're encouraged to also install `vscode-graphiql-explorer` for the best experience.
+
+This extension should _Just Work(tm)_, as it finds and uses your `relay.config.js`.
+
 ## Features
 
 ### General
 
 - Syntax highlighting for GraphQL in ReasonML.
 - Autocomplete and validations for your GraphQL operations using the official GraphQL Language Server. Including for Relay specific directives.
-- Automatically formatting all GraphQL operations in your documents using `prettier`
-- Generate fragments, queries, mutations and subscriptions (and edit them in GraphiQL if `vscode-graphiql-explorer` is installed).
+- Automatically formatting all GraphQL operations in your documents on save using `prettier`
+
+### Code generation
+
+Provides commands to generate boilerplate for `fragments`, `queries`, `mutations` and `subscriptions` via the commands:
+
+- `> Add fragment`
+- `> Add query`
+- `> Add mutation`
+- `> Add subscription`
+
+The added GraphQL definition can also automatically be edited in GraphiQL using the `vscode-graphiql-explorer` extension if that is installed.
 
 ### Relay GraphQL Code actions
+
+#### Extract field selections to new fragment component
+
+Inside any GraphQL definition, select any number of fields, activate code actions and choose `Extract selection to fragment component`. This will take your field selection and create a new component with a fragment including your selected fields. The fields you selected can optionally be removed from where they were extracted too if wanted, and the newly created fragment will be spread where you extracted the fields, setting up everything needed for you automatically.
 
 #### Automatically set up fragment for pagination
 
 Place your cursor on a `connection` field (basically a field of any GraphQL type that ends with `Connection`). Activate code actions, and select `Set up pagination for fragment`. This will setup all needed directives on your fragment to enable pagination.
 
-_This README is WIP and will be extended soon_.
+#### Make fragment refetchable
 
-## Setup
+With the cursor in a fragment definition, activate code actions and select `Make fragment refetchable`. This will add the `@refetchable` directive to the fragment, with a suitable `queryName` preconfigured, making it possible to refetch the fragment.
 
-> In addition to this extension, you're encouraged to also install `vscode-graphiql-explorer` for the best experience.
+#### Add variable to `@argumentDefinitions`
 
-Other than that, this extension should _Just Work(tm)_, as it finds and uses your `relay.config.js`.
+In a fragment, add a variable to any argument for a field, like `myField @include(if: $showMyField)`. Put your cursor on the variable name `$showMyField` and activate code actions. Select `Add variable to @argumentDefinitions`. The variable is added to the fragments `@argumentDefinitions`, like `fragment SomeFragment_user on User @argumentDefinitions(showMyField: {type: "Boolean" })`.
+
+#### Make fragment plural
+
+With the cursor in a fragment definition, activate code actions and select `Make fragment plural`. The Relay directive for saying that a fragment is plural ıs added to the fragment definition.
+
+#### Make fragment inline
+
+With the cursor in a fragment definition, activate code actions and select `Make fragment inline`. The Relay directive for saying that this fragment should _always be unmasked wherever spread_ is added to the fragment.
