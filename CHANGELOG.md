@@ -1,5 +1,9 @@
 ## master
 
+## 0.2.1
+
+- Update README with a list of the current features of the extension.
+
 ## 0.2.0
 
 - Restore autocomplete functionality again, that broke somewhere along the way.
