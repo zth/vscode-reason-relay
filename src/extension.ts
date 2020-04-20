@@ -17,6 +17,7 @@ import {
   WorkspaceEdit,
   TextEditor,
   ProgressLocation,
+  extensions,
 } from "vscode";
 
 import {
@@ -74,6 +75,7 @@ import {
   loadFullSchema,
   getCurrentWorkspaceRoot,
   cacheControl,
+  loadRelayConfig,
 } from "./loadSchema";
 import { State } from "graphql-language-service-types";
 
@@ -1246,6 +1248,38 @@ export async function activate(context: ExtensionContext) {
     }),
     schemaWatcher
   );
+
+  /**
+   * This sets up a fs watcher on the generated folder, so we can force-restart RLS
+   * whenever the Relay compiler changes generated files.
+   *
+   * If we don't do this, RLS won't pick up our changes as it doesn't watch the entire
+   * project and therefore don't know that the Relay compiler has updated files.
+   */
+
+  const hasRLS = !!extensions.getExtension("jaredly.reason-vscode");
+
+  if (hasRLS) {
+    const config = await loadRelayConfig();
+
+    if (config) {
+      const artifactDirWatcher = workspace.createFileSystemWatcher(
+        config.artifactDirectory + "/*.re"
+      );
+
+      let changedTimeout: any;
+
+      artifactDirWatcher.onDidChange(() => {
+        clearTimeout(changedTimeout);
+
+        changedTimeout = setTimeout(() => {
+          commands.executeCommand("reason-language-server.restart");
+        }, 200);
+      });
+
+      context.subscriptions.push(artifactDirWatcher);
+    }
+  }
 }
 
 export function deactivate() {

@@ -2,6 +2,7 @@ import { GraphQLSchema } from "graphql";
 import { workspace, window, ProgressLocation } from "vscode";
 import { createGraphQLConfig } from "./graphqlConfig";
 import { GraphQLConfig } from "graphql-config";
+import * as path from "path";
 
 interface SchemaCache {
   config: GraphQLConfig;
@@ -49,20 +50,21 @@ export function getCurrentWorkspaceRoot(): string | undefined {
   }
 }
 
-let loadSchemaPromise: Promise<GraphQLSchema | undefined> | undefined;
+let loadSchemaCachePromise: Promise<SchemaCache | undefined> | undefined;
 
-export function getSchemaForWorkspace(
+export function getSchemaCacheForWorkspace(
   workspaceBaseDir: string
-): Promise<GraphQLSchema | undefined> {
-  if (loadSchemaPromise) {
-    return loadSchemaPromise;
+): Promise<SchemaCache | undefined> {
+  if (loadSchemaCachePromise) {
+    return loadSchemaCachePromise;
   }
 
-  loadSchemaPromise = new Promise(async (resolve) => {
+  loadSchemaCachePromise = new Promise(async (resolve) => {
     const fromCache = cache[workspaceBaseDir];
 
     if (fromCache) {
-      return resolve(fromCache.schema);
+      loadSchemaCachePromise = undefined;
+      return resolve(fromCache);
     }
 
     let schema: GraphQLSchema | undefined;
@@ -86,7 +88,7 @@ export function getSchemaForWorkspace(
     );
 
     if (!config || !schema) {
-      loadSchemaPromise = undefined;
+      loadSchemaCachePromise = undefined;
       return;
     }
 
@@ -96,12 +98,12 @@ export function getSchemaForWorkspace(
     };
 
     cache[workspaceBaseDir] = entry;
-    loadSchemaPromise = undefined;
+    loadSchemaCachePromise = undefined;
 
-    resolve(entry.schema);
+    resolve(entry);
   });
 
-  return loadSchemaPromise;
+  return loadSchemaCachePromise;
 }
 
 export async function loadFullSchema(): Promise<GraphQLSchema | undefined> {
@@ -111,5 +113,50 @@ export async function loadFullSchema(): Promise<GraphQLSchema | undefined> {
     return;
   }
 
-  return getSchemaForWorkspace(workspaceRoot);
+  const cacheEntry = await getSchemaCacheForWorkspace(workspaceRoot);
+  return cacheEntry ? cacheEntry.schema : undefined;
+}
+
+export async function loadGraphQLConfig(): Promise<GraphQLConfig | undefined> {
+  const workspaceRoot = getCurrentWorkspaceRoot();
+
+  if (!workspaceRoot) {
+    return;
+  }
+
+  const cacheEntry = await getSchemaCacheForWorkspace(workspaceRoot);
+  return cacheEntry ? cacheEntry.config : undefined;
+}
+
+export type RelayConfig = {
+  src: string;
+  schema: string;
+  artifactDirectory: string;
+};
+
+export async function loadRelayConfig(): Promise<RelayConfig | undefined> {
+  const config = await loadGraphQLConfig();
+  if (config) {
+    let relayConfig: RelayConfig | undefined;
+    try {
+      const configFilePath = config.getProject().filepath;
+      const rawRelayConfig = require(config.getProject().filepath);
+
+      relayConfig = {
+        src: path.resolve(path.dirname(configFilePath), rawRelayConfig.src),
+        schema: path.resolve(
+          path.dirname(configFilePath),
+          rawRelayConfig.schema
+        ),
+        artifactDirectory: path.resolve(
+          path.dirname(configFilePath),
+          rawRelayConfig.artifactDirectory
+        ),
+      };
+    } catch (e) {
+      return;
+    }
+
+    return relayConfig;
+  }
 }
