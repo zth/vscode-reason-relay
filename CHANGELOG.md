@@ -1,6 +1,9 @@
 ## master
 
-- Automatically restart RLS (if it's installed) whenver the Relay compiler has changed generated files. This works around the issue where RLS does not pick up that the Relay compiler has emitted new files, or changed existing generated files.
+- Automatically restart RLS (if it's installed) whenever the Relay compiler has changed generated files. This works around the issue where RLS does not pick up that the Relay compiler has emitted new files, or changed existing generated files.
+- Run the Relay compiler through VSCode automatically, and report errors discovered by the compiler inside VSCode.
+- Refresh the project whenever `relay.confg.js` changes.
+- Settings page added.
 
 ## 0.2.1
 

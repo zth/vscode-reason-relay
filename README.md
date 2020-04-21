@@ -14,7 +14,9 @@ This extension should _Just Work(tm)_, as it finds and uses your `relay.config.j
 
 - Syntax highlighting for GraphQL in ReasonML.
 - Autocomplete and validations for your GraphQL operations using the official GraphQL Language Server. Including for Relay specific directives.
-- Automatically formatting all GraphQL operations in your documents on save using `prettier`
+- Automatically formatting all GraphQL operations in your documents on save using `prettier`.
+- Run the Relay compiler through VSCode directly, and get notified when it errors.
+- Project is refreshed and recompiled whenever `relay.config.js` changes.
 
 ### Code generation
 
@@ -52,3 +54,12 @@ With the cursor in a fragment definition, activate code actions and select `Make
 #### Make fragment inline
 
 With the cursor in a fragment definition, activate code actions and select `Make fragment inline`. The Relay directive for saying that this fragment should _always be unmasked wherever spread_ is added to the fragment.
+
+## Roadmap
+
+Here's a list of features (in no particular order of importance or scope size) that I'd like to add support for at some point:
+
+- "Diagnostics" like notifying the user about custom scalars that don't have proper definition in `relay.config.js`
+- Autosetup ReasonRelay in a project via VSCode (install packages, setup `bsconfig.json`, add needed files, etc)
+- Code action for inserting the `@connection` directive
+- Tie the extension together with the docs much more. Make it easy to open the relevant part of the docs depending on what you're doing.

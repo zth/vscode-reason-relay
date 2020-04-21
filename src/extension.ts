@@ -1,6 +1,8 @@
 import * as path from "path";
 import * as fs from "fs";
 import { pascalCase } from "pascal-case";
+import * as cp from "child_process";
+
 import {
   workspace,
   ExtensionContext,
@@ -18,6 +20,7 @@ import {
   TextEditor,
   ProgressLocation,
   extensions,
+  StatusBarAlignment,
 } from "vscode";
 
 import {
@@ -26,6 +29,8 @@ import {
   ServerOptions,
   TransportKind,
   Command,
+  RevealOutputChannelOn,
+  Disposable,
 } from "vscode-languageclient";
 
 import {
@@ -76,6 +81,7 @@ import {
   getCurrentWorkspaceRoot,
   cacheControl,
   loadRelayConfig,
+  loadGraphQLConfig,
 } from "./loadSchema";
 import { State } from "graphql-language-service-types";
 
@@ -1148,7 +1154,7 @@ let make = (~${uncapitalize(typeInfo.parentTypeName)}) => {
 function initLanguageServer(
   context: ExtensionContext,
   outputChannel: OutputChannel
-): LanguageClient {
+): { client: LanguageClient; disposableClient: Disposable } {
   const serverModule = context.asAbsolutePath(path.join("build", "server.js"));
   const currentWorkspacePath = getCurrentWorkspaceRoot();
 
@@ -1183,6 +1189,7 @@ function initLanguageServer(
     },
     outputChannel: outputChannel,
     outputChannelName: "ReasonRelay GraphQL Language Server",
+    revealOutputChannelOn: RevealOutputChannelOn.Never,
   };
 
   const client = new LanguageClient(
@@ -1195,7 +1202,7 @@ function initLanguageServer(
   const disposableClient = client.start();
   context.subscriptions.push(disposableClient);
 
-  return client;
+  return { client, disposableClient };
 }
 
 export async function activate(context: ExtensionContext) {
@@ -1204,12 +1211,26 @@ export async function activate(context: ExtensionContext) {
   );
 
   let client: LanguageClient | undefined;
+  let clientDisposable: Disposable | undefined;
 
-  function initClient() {
-    return initLanguageServer(context, outputChannel);
+  const relayConfig = await loadRelayConfig();
+  const graphqlConfig = await loadGraphQLConfig();
+
+  async function initClient() {
+    if (client) {
+      await client.stop();
+    }
+
+    if (clientDisposable) {
+      clientDisposable.dispose();
+    }
+
+    const inited = initLanguageServer(context, outputChannel);
+    client = inited.client;
+    clientDisposable = inited.disposableClient;
   }
 
-  client = initClient();
+  await initClient();
   initCommands(context);
   initHoverProviders();
 
@@ -1222,17 +1243,12 @@ export async function activate(context: ExtensionContext) {
           window.withProgress(
             {
               location: ProgressLocation.Notification,
-              title: "Refreshing your schema...",
+              title: "Changes to schema detected. Refreshing...",
               cancellable: false,
             },
             async () => {
               await cacheControl.refresh(f.uri.fsPath);
-
-              if (client) {
-                await client.stop();
-              }
-
-              client = initClient();
+              await initClient();
             }
           );
         }
@@ -1249,6 +1265,143 @@ export async function activate(context: ExtensionContext) {
     schemaWatcher
   );
 
+  if (relayConfig && graphqlConfig) {
+    let relayCompilerOutputChannel: OutputChannel = window.createOutputChannel(
+      "Relay Compiler"
+    );
+    let childProcess: cp.ChildProcessWithoutNullStreams | undefined;
+
+    const item = window.createStatusBarItem(StatusBarAlignment.Right);
+
+    function setStatusBarItemToStart() {
+      item.text = "$(debug-start) Start the Relay compiler";
+      item.command = "vscode-reason-relay.start-compiler";
+    }
+
+    function setStatusBarItemToStop() {
+      item.text = "$(debug-stop) Stop the Relay compiler";
+      item.command = "vscode-reason-relay.stop-compiler";
+    }
+
+    setStatusBarItemToStart();
+    item.show();
+
+    context.subscriptions.push(
+      relayCompilerOutputChannel,
+      commands.registerCommand("vscode-reason-relay.start-compiler", () => {
+        childProcess = cp.spawn(
+          // TODO: Do a more robust solution for the PATH that also works with Windows
+          "PATH=$PATH:./node_modules/.bin reason-relay-compiler",
+          ["--watch"],
+          {
+            cwd: graphqlConfig.dirpath,
+            shell: true,
+          }
+        );
+
+        // TODO: React to "end"
+
+        let errorBuffer: string | undefined;
+
+        if (childProcess.pid) {
+          childProcess.stdout.on("data", (data: Buffer) => {
+            const str = data.toString();
+
+            // TODO: Detect compiler back to normal
+
+            // Error detected or already in buffer, add to the error buffer
+            if (str.includes("ERROR:") || errorBuffer) {
+              errorBuffer += str;
+            }
+
+            if (errorBuffer) {
+              const error = /(?<=ERROR:)([\s\S]*?)(?=Watching for changes )/g.exec(
+                errorBuffer
+              );
+
+              if (error && error[0]) {
+                window
+                  .showInformationMessage(
+                    "Relay Compiler error:\n\n" + error[0].trim(),
+                    "See the full compiler output"
+                  )
+                  .then((m) => {
+                    if (m) {
+                      relayCompilerOutputChannel.show();
+                    }
+                  });
+
+                // Reset error buffer
+                errorBuffer = undefined;
+              }
+            }
+
+            relayCompilerOutputChannel.append(str);
+          });
+
+          childProcess.stdout.on("error", (e) => {
+            window.showErrorMessage(e.message);
+          });
+
+          childProcess.stdout.on("close", () => {
+            window.showInformationMessage(
+              "The Relay compiler has been shut down."
+            );
+            childProcess = undefined;
+            setStatusBarItemToStart();
+          });
+
+          childProcess.stderr.on("error", (e) => {
+            window.showErrorMessage(e.message);
+          });
+
+          childProcess.stdout.on("end", () => {
+            window.showInformationMessage(
+              "The Relay compiler has been shut down."
+            );
+            childProcess = undefined;
+            setStatusBarItemToStart();
+          });
+
+          setStatusBarItemToStop();
+        }
+      }),
+      commands.registerCommand("vscode-reason-relay.stop-compiler", () => {
+        if (childProcess && childProcess.pid && childProcess.kill()) {
+          setStatusBarItemToStart();
+        } else {
+          window.showWarningMessage("Could not stop the Relay compiler.");
+        }
+      })
+    );
+
+    const relayConfigWatcher = workspace.createFileSystemWatcher(
+      graphqlConfig.filepath
+    );
+
+    relayConfigWatcher.onDidChange(async () => {
+      await window.withProgress(
+        {
+          location: ProgressLocation.Notification,
+          title: "relay.config.js changed, refreshing...",
+          cancellable: false,
+        },
+        async () => {
+          await initClient();
+          await commands.executeCommand("vscode-reason-relay.stop-compiler");
+          await commands.executeCommand("vscode-reason-relay.start-compiler");
+        }
+      );
+    });
+
+    // Autostart the compiler if wanted
+    if (
+      workspace.getConfiguration("reason-relay").get("autoStartRelayCompiler")
+    ) {
+      await commands.executeCommand("vscode-reason-relay.start-compiler");
+    }
+  }
+
   /**
    * This sets up a fs watcher on the generated folder, so we can force-restart RLS
    * whenever the Relay compiler changes generated files.
@@ -1259,26 +1412,28 @@ export async function activate(context: ExtensionContext) {
 
   const hasRLS = !!extensions.getExtension("jaredly.reason-vscode");
 
-  if (hasRLS) {
-    const config = await loadRelayConfig();
+  if (relayConfig && hasRLS) {
+    const artifactDirWatcher = workspace.createFileSystemWatcher(
+      relayConfig.artifactDirectory + "/*.re"
+    );
 
-    if (config) {
-      const artifactDirWatcher = workspace.createFileSystemWatcher(
-        config.artifactDirectory + "/*.re"
-      );
+    let changedTimeout: any;
 
-      let changedTimeout: any;
+    artifactDirWatcher.onDidChange(() => {
+      clearTimeout(changedTimeout);
 
-      artifactDirWatcher.onDidChange(() => {
-        clearTimeout(changedTimeout);
-
-        changedTimeout = setTimeout(() => {
+      changedTimeout = setTimeout(() => {
+        if (
+          workspace
+            .getConfiguration("reason-relay")
+            .get("autoStartRelayCompiler")
+        ) {
           commands.executeCommand("reason-language-server.restart");
-        }, 200);
-      });
+        }
+      }, 200);
+    });
 
-      context.subscriptions.push(artifactDirWatcher);
-    }
+    context.subscriptions.push(artifactDirWatcher);
   }
 }
 

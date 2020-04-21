@@ -31,6 +31,21 @@
   },
   "license": "MIT",
   "contributes": {
+    "configuration": {
+      "title": "ReasonRelay",
+      "properties": {
+        "reason-relay.autoStartRelayCompiler": {
+          "type": "boolean",
+          "default": true,
+          "description": "Autostart the Relay compiler when in a ReasonRelay project?"
+        },
+        "reason-relay.restartRLSOnChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Restart Reason Language Server (if installed) on changes to Relay generated files? If not enabled, you might need to double save in order for changes to be picked up by the Reason Language Server (and therefore in your editor)."
+        }
+      }
+    },
     "commands": [
       {
         "command": "vscode-reason-relay.add-fragment",
