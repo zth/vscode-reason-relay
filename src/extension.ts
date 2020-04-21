@@ -1279,7 +1279,7 @@ export async function activate(context: ExtensionContext) {
     }
 
     function setStatusBarItemToStop() {
-      item.text = "$(debug-stop) Stop the Relay compiler";
+      item.text = "$(debug-stop) Relay Compiler is running...";
       item.command = "vscode-reason-relay.stop-compiler";
     }
 
