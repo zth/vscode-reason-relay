@@ -1286,6 +1286,20 @@ export async function activate(context: ExtensionContext) {
     setStatusBarItemToStart();
     item.show();
 
+    function showRelayCompilerMessage(
+      message: string,
+      type: "warning" | "information" = "information"
+    ) {
+      (type === "information"
+        ? window.showInformationMessage(message, "See the full compiler output")
+        : window.showWarningMessage(message, "See the full compiler output")
+      ).then((m) => {
+        if (m) {
+          relayCompilerOutputChannel.show();
+        }
+      });
+    }
+
     context.subscriptions.push(
       relayCompilerOutputChannel,
       commands.registerCommand("vscode-reason-relay.start-compiler", () => {
@@ -1299,15 +1313,31 @@ export async function activate(context: ExtensionContext) {
           }
         );
 
-        // TODO: React to "end"
-
         let errorBuffer: string | undefined;
+        let hasHadError: boolean = false;
+        let statusBarMessageTimeout: any = null;
 
         if (childProcess.pid) {
           childProcess.stdout.on("data", (data: Buffer) => {
             const str = data.toString();
 
-            // TODO: Detect compiler back to normal
+            if (/(Created|Updated|Deleted|Unchanged):/g.test(str)) {
+              if (hasHadError) {
+                window.showInformationMessage(
+                  "Relay Compiler: Back to normal."
+                );
+                hasHadError = false;
+              }
+
+              // We don't want to alert that things changed if they didn't
+              if (/(Created|Updated|Deleted):/g.test(str)) {
+                clearTimeout(statusBarMessageTimeout);
+                item.text = "$(debug-stop) $(check) Relay Compiler updated";
+                statusBarMessageTimeout = setTimeout(() => {
+                  setStatusBarItemToStop();
+                }, 4000);
+              }
+            }
 
             // Error detected or already in buffer, add to the error buffer
             if (str.includes("ERROR:") || errorBuffer) {
@@ -1320,19 +1350,14 @@ export async function activate(context: ExtensionContext) {
               );
 
               if (error && error[0]) {
-                window
-                  .showInformationMessage(
-                    "Relay Compiler error:\n\n" + error[0].trim(),
-                    "See the full compiler output"
-                  )
-                  .then((m) => {
-                    if (m) {
-                      relayCompilerOutputChannel.show();
-                    }
-                  });
+                showRelayCompilerMessage(
+                  "Relay Compiler error:\n\n" + error[0].trim(),
+                  "warning"
+                );
 
                 // Reset error buffer
                 errorBuffer = undefined;
+                hasHadError = true;
               }
             }
 

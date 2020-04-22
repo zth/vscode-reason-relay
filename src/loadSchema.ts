@@ -1,5 +1,5 @@
 import { GraphQLSchema } from "graphql";
-import { workspace, window, ProgressLocation } from "vscode";
+import { workspace } from "vscode";
 import { createGraphQLConfig } from "./graphqlConfig";
 import { GraphQLConfig } from "graphql-config";
 import * as path from "path";
@@ -70,22 +70,13 @@ export function getSchemaCacheForWorkspace(
     let schema: GraphQLSchema | undefined;
     let config: GraphQLConfig | undefined;
 
-    await window.withProgress(
-      {
-        location: ProgressLocation.Notification,
-        title: "Loading your GraphQL schema...",
-        cancellable: false,
-      },
-      async () => {
-        config = await createGraphQLConfig(workspaceBaseDir);
+    config = await createGraphQLConfig(workspaceBaseDir);
 
-        if (!config) {
-          return;
-        }
+    if (!config) {
+      return;
+    }
 
-        schema = await config.getProject().getSchema();
-      }
-    );
+    schema = await config.getProject().getSchema();
 
     if (!config || !schema) {
       loadSchemaCachePromise = undefined;
