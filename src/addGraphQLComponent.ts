@@ -145,6 +145,8 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
       .shift() || ""
   );
 
+  // TODO: Insert GraphQL code via AST instead so we have an easy way of ensuring that we always add a selection to the root right away.
+
   switch (type) {
     case "Fragment": {
       const ppxNodeName = "relay.fragment";
@@ -164,7 +166,11 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
           )
       );
 
-      const onType = (await result) || "_";
+      const onType = await result;
+
+      if (!onType) {
+        return;
+      }
 
       const rModuleName = await getValidModuleName(
         docText,
@@ -191,7 +197,11 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         }
       );
 
-      const query = (await result) || "_";
+      const query = await result;
+
+      if (!query) {
+        return;
+      }
 
       const queryField = await schemaPromise.then((schema) => {
         if (schema) {
@@ -227,7 +237,11 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         }
       );
 
-      const mutation = (await result) || "_";
+      const mutation = await result;
+
+      if (!mutation) {
+        return;
+      }
 
       const mutationField = await schemaPromise.then((schema) => {
         if (schema) {
@@ -266,7 +280,11 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         }
       );
 
-      const subscription = (await result) || "_";
+      const subscription = await result;
+
+      if (!subscription) {
+        return;
+      }
 
       const subscriptionField = await schemaPromise.then((schema) => {
         if (schema) {
