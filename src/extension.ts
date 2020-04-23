@@ -1108,8 +1108,16 @@ export async function activate(context: ExtensionContext) {
       type: "warning" | "information" = "information"
     ) {
       (type === "information"
-        ? window.showInformationMessage(message, "See the full compiler output")
-        : window.showWarningMessage(message, "See the full compiler output")
+        ? window.showInformationMessage(
+            `${message}\n\n[See full compiler output.](${Uri.parse(
+              "command:vscode-reason-relay.show-relay-compiler-output"
+            )})`
+          )
+        : window.showWarningMessage(
+            `${message}\n\n[See full compiler output.](${Uri.parse(
+              "command:vscode-reason-relay.show-relay-compiler-output"
+            )})`
+          )
       ).then((m) => {
         if (m) {
           relayCompilerOutputChannel.show();
