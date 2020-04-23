@@ -22,6 +22,7 @@ import {
   extensions,
   Selection,
   StatusBarAlignment,
+  Diagnostic,
 } from "vscode";
 
 import {
@@ -32,6 +33,7 @@ import {
   Command,
   RevealOutputChannelOn,
   Disposable,
+  HandleDiagnosticsSignature,
 } from "vscode-languageclient";
 
 import {
@@ -962,11 +964,28 @@ function initLanguageServer(
       { scheme: "file", language: "reason" },
     ],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher("**/*.{graphql,gql,re}"),
+      fileEvents: workspace.createFileSystemWatcher("**/*.re"),
     },
     outputChannel: outputChannel,
     outputChannelName: "ReasonRelay GraphQL Language Server",
     revealOutputChannelOn: RevealOutputChannelOn.Never,
+    middleware: {
+      handleDiagnostics(
+        this: void,
+        uri: Uri,
+        d: Diagnostic[],
+        next: HandleDiagnosticsSignature
+      ): void {
+        next(
+          uri,
+          d.filter(
+            (dia) =>
+              !dia.message.includes("Unknown argument") &&
+              !dia.message.includes('on directive "@argumentDefinitions"')
+          )
+        );
+      },
+    },
   };
 
   const client = new LanguageClient(
