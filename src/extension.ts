@@ -62,7 +62,6 @@ import {
   SelectionNode,
   getNamedType,
   ASTNode,
-  FragmentDefinitionNode,
   FieldNode,
   GraphQLUnionType,
   SelectionSetNode,
@@ -88,6 +87,7 @@ import {
   makeSelectionSet,
   makeFieldSelection,
   getFirstField,
+  makeFragment,
 } from "./graphqlUtils";
 
 function getModuleNameFromFile(uri: Uri): string {
@@ -828,24 +828,9 @@ function initCommands(context: ExtensionContext): void {
           )}${newComponentName}.re`,
         });
 
-        const newFragment = prettify(
-          print(
-            visit(
-              parse(
-                `fragment ${fragmentName} on ${typeInfo.parentTypeName} { __typename }`
-              ),
-              {
-                FragmentDefinition(node) {
-                  const newNode: FragmentDefinitionNode = {
-                    ...node,
-                    selectionSet: makeSelectionSet(selectedNodes),
-                  };
-
-                  return newNode;
-                },
-              }
-            )
-          )
+        const newFragment = await makeFragment(
+          fragmentName,
+          typeInfo.parentTypeName
         );
 
         fs.writeFileSync(

@@ -1,5 +1,7 @@
 ## master
 
+- Adding fragments/queries/mutations/subscriptions is now done properly through ASTs, which will increase the stability of using them quite a lot.
+
 ## 0.3.0
 
 - Automatically restart RLS (if it's installed) whenever the Relay compiler has changed generated files. This works around the issue where RLS does not pick up that the Relay compiler has emitted new files, or changed existing generated files.

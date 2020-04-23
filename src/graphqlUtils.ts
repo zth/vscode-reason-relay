@@ -16,10 +16,19 @@ import {
   FragmentDefinitionNode,
   FragmentSpreadNode,
   parse,
+  visit,
+  GraphQLInterfaceType,
+  print,
+  getNamedType,
+  GraphQLUnionType,
+  VariableNode,
+  OperationTypeNode,
 } from "graphql";
 
 import { Position } from "vscode";
 import { State } from "graphql-language-service-types";
+import { loadFullSchema } from "./loadSchema";
+import { prettify } from "./extensionUtils";
 
 export interface NodeWithLoc {
   loc?: Location | undefined;
@@ -61,7 +70,7 @@ export function runOnNodeAtPos<T extends NodeWithLoc>(
 }
 
 export function getFirstField(
-  obj: GraphQLObjectType
+  obj: GraphQLObjectType | GraphQLInterfaceType
 ): GraphQLField<any, any, { [key: string]: any }> {
   const fields = Object.values(obj.getFields());
   const hasIdField = fields.find((v) => v.name === "id");
@@ -92,7 +101,8 @@ export function makeSelectionSet(
 
 export function makeFieldSelection(
   name: string,
-  selections?: SelectionNode[]
+  selections?: SelectionNode[],
+  args?: ArgumentNode[]
 ): FieldNode {
   return {
     kind: "Field",
@@ -101,7 +111,27 @@ export function makeFieldSelection(
       value: name,
     },
     selectionSet: selections != null ? makeSelectionSet(selections) : undefined,
+    arguments: args,
   };
+}
+
+export function makeFirstFieldSelection(
+  type: GraphQLObjectType | GraphQLInterfaceType
+): FieldNode {
+  const firstField = getFirstField(type);
+  const fieldType = getNamedType(firstField.type);
+
+  if (
+    fieldType instanceof GraphQLObjectType ||
+    fieldType instanceof GraphQLInterfaceType ||
+    fieldType instanceof GraphQLUnionType
+  ) {
+    return makeFieldSelection(firstField.name, [
+      makeFieldSelection("__typename"),
+    ]);
+  }
+
+  return makeFieldSelection(firstField.name);
 }
 
 export function makeArgumentDefinitionVariable(
@@ -166,6 +196,16 @@ export function makeVariableDefinitionNode(
       (v) => v.variable.name.value === name
     );
   }
+}
+
+export function makeVariableNode(name: string): VariableNode {
+  return {
+    kind: "Variable",
+    name: {
+      kind: "Name",
+      value: name,
+    },
+  };
 }
 
 export function findPath(state: State): string[] {
@@ -261,4 +301,104 @@ export function addDirectiveToNode<T extends NodesWithDirectives>(
       directiveNode,
     ],
   };
+}
+
+export async function makeFragment(
+  fragmentName: string,
+  onTypeName: string
+): Promise<string> {
+  const schema = await loadFullSchema();
+
+  if (!schema) {
+    throw new Error("Could not get schema.");
+  }
+
+  const onType = schema.getType(onTypeName);
+
+  if (
+    onType &&
+    (onType instanceof GraphQLObjectType ||
+      onType instanceof GraphQLInterfaceType)
+  ) {
+    const newFragment = prettify(
+      print(
+        visit(
+          parse(`fragment ${fragmentName} on ${onTypeName} { __typename }`),
+          {
+            FragmentDefinition(node) {
+              const newNode: FragmentDefinitionNode = {
+                ...node,
+                selectionSet: makeSelectionSet([
+                  makeFirstFieldSelection(onType),
+                ]),
+              };
+
+              return newNode;
+            },
+          }
+        )
+      )
+    );
+
+    return newFragment;
+  }
+
+  throw new Error("Could not build fragment...");
+}
+
+export async function makeOperation(
+  operationType: OperationTypeNode,
+  operationName: string,
+  rootField: GraphQLField<
+    any,
+    any,
+    {
+      [key: string]: any;
+    }
+  >
+): Promise<string> {
+  return prettify(
+    print(
+      visit(parse(`${operationType} ${operationName} { __typename }`), {
+        OperationDefinition(node) {
+          const rootFieldType = getNamedType(rootField.type);
+
+          const requiredArgs = rootField.args.filter((a) =>
+            a.type.toString().endsWith("!")
+          );
+
+          const newNode: OperationDefinitionNode = {
+            ...node,
+            variableDefinitions: requiredArgs.reduce(
+              (acc: VariableDefinitionNode[], a) => {
+                const v = makeVariableDefinitionNode(a.name, a.type.toString());
+                if (v) {
+                  acc.push(v);
+                }
+
+                return acc;
+              },
+              []
+            ),
+            selectionSet: makeSelectionSet([
+              makeFieldSelection(
+                rootField.name,
+                rootFieldType instanceof GraphQLUnionType
+                  ? [makeFieldSelection("__typename")]
+                  : rootFieldType instanceof GraphQLInterfaceType ||
+                    rootFieldType instanceof GraphQLObjectType
+                  ? [makeFirstFieldSelection(rootFieldType)]
+                  : undefined,
+                requiredArgs.map((a) =>
+                  makeArgument(a.name, makeVariableNode(a.name))
+                )
+              ),
+            ]),
+          };
+
+          return newNode;
+        },
+      })
+    )
+  );
 }

@@ -12,13 +12,8 @@ import {
   extensions,
 } from "vscode";
 
-import {
-  GraphQLSchema,
-  GraphQLNamedType,
-  GraphQLObjectType,
-  GraphQLArgument,
-  GraphQLField,
-} from "graphql";
+import { GraphQLSchema, GraphQLNamedType, GraphQLObjectType } from "graphql";
+import { makeFragment, makeOperation } from "./graphqlUtils";
 
 async function getValidModuleName(
   docText: string,
@@ -64,69 +59,6 @@ export function quickPickFromSchema(
   };
 }
 
-interface MakeArgsResult {
-  definition: string;
-  mapper: string;
-}
-
-type MakeArgsType = "ALL" | "ONLY_REQUIRED";
-
-function makeArgs(
-  type: MakeArgsType,
-  field:
-    | GraphQLField<
-        any,
-        any,
-        {
-          [key: string]: any;
-        }
-      >
-    | undefined
-    | null
-): MakeArgsResult {
-  let args = [];
-
-  if (!field) {
-    return {
-      definition: "",
-      mapper: "",
-    };
-  }
-
-  switch (type) {
-    case "ALL":
-      args = field.args;
-      break;
-    case "ONLY_REQUIRED":
-      args = field.args.filter((a) => a.type.toString().endsWith("!"));
-      break;
-  }
-
-  let definition = "";
-  let mapper = "";
-
-  if (args.length > 0) {
-    definition += "(";
-    mapper += "(";
-
-    definition += args
-      .map((v: GraphQLArgument) => `$${v.name}: ${v.type.toString()}`)
-      .join(", ");
-
-    mapper += args
-      .map((v: GraphQLArgument) => `${v.name}: $${v.name}`)
-      .join(", ");
-
-    definition += ")";
-    mapper += ")";
-  }
-
-  return {
-    definition,
-    mapper,
-  };
-}
-
 export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
   const textEditor = window.activeTextEditor;
 
@@ -139,13 +71,12 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
 
   let insert = "";
 
+  // TODO: Fix this, this is insane
   const moduleName = capitalize(
     (textEditor.document.fileName.split(/\\|\//).pop() || "")
       .split(".")
       .shift() || ""
   );
-
-  // TODO: Insert GraphQL code via AST instead so we have an easy way of ensuring that we always add a selection to the root right away.
 
   switch (type) {
     case "Fragment": {
@@ -177,9 +108,10 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         `${onType}Fragment`
       );
 
-      insert += `module ${rModuleName} = [%${ppxNodeName}\n  {|\n  fragment ${moduleName}_${uncapitalize(
-        rModuleName.replace("Fragment", "")
-      )} on ${onType} {\n   id\n    \n  }\n|}\n];`;
+      insert += `module ${rModuleName} = [%${ppxNodeName}\n  {|\n  ${await makeFragment(
+        `${moduleName}_${uncapitalize(rModuleName.replace("Fragment", ""))}`,
+        onType
+      )}\n|}\n];`;
       break;
     }
     case "Query": {
@@ -214,12 +146,19 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         return null;
       });
 
-      const { definition, mapper } = makeArgs("ONLY_REQUIRED", queryField);
+      if (!queryField) {
+        return;
+      }
 
-      insert += `module ${await getValidModuleName(
-        docText,
-        `Query`
-      )} = [%${ppxNodeName}\n  {|\n  query ${moduleName}Query${definition} {\n  ${query}${mapper}  \n  }\n|}\n];`;
+      const rModuleName = await getValidModuleName(docText, `Query`);
+
+      insert += `module ${rModuleName} = [%${ppxNodeName}\n  {|\n  ${await makeOperation(
+        "query",
+        `${moduleName}${rModuleName}${
+          rModuleName.endsWith("Query") ? "" : "Query"
+        }`,
+        queryField
+      )}\n|}\n];`;
       break;
     }
     case "Mutation": {
@@ -254,14 +193,20 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         return null;
       });
 
-      const { definition, mapper } = makeArgs("ALL", mutationField);
+      if (!mutationField) {
+        return;
+      }
 
-      insert += `module ${await getValidModuleName(
+      const rModuleName = await getValidModuleName(
         docText,
         `${capitalize(mutation)}Mutation`
-      )} = [%${ppxNodeName}\n  {|\n  mutation ${moduleName}_${capitalize(
-        mutation
-      )}Mutation${definition} {\n    ${mutation}${mapper}\n  }\n|}\n];`;
+      );
+
+      insert += `module ${rModuleName} = [%${ppxNodeName}\n  {|\n  ${await makeOperation(
+        "mutation",
+        `${moduleName}_${capitalize(mutation)}Mutation`,
+        mutationField
+      )}\n|}\n];`;
       break;
     }
 
@@ -297,11 +242,17 @@ export async function addGraphQLComponent(type: InsertGraphQLComponentType) {
         return null;
       });
 
-      const { definition, mapper } = makeArgs("ALL", subscriptionField);
-      insert += `module ${await getValidModuleName(
-        docText,
-        `Subscription`
-      )} = [%${ppxNodeName}\n  {|\n  subscription ${moduleName}Subscription${definition} {\n  ${subscription}${mapper}  \n  }\n|}\n];`;
+      if (!subscriptionField) {
+        return;
+      }
+
+      const rModuleName = await getValidModuleName(docText, `Subscription`);
+
+      insert += `module ${rModuleName} = [%${ppxNodeName}\n  {|\n  ${await makeOperation(
+        "subscription",
+        `${moduleName}_${capitalize(subscription)}Subscription`,
+        subscriptionField
+      )}\n|}\n];`;
       break;
     }
   }
