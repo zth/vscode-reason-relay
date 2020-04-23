@@ -20,6 +20,7 @@ import {
   TextEditor,
   ProgressLocation,
   extensions,
+  Selection,
   StatusBarAlignment,
 } from "vscode";
 
@@ -869,6 +870,17 @@ let make = (~${uncapitalize(typeInfo.parentTypeName)}) => {
               window.showTextDocument(newDoc);
             }
           });
+
+        editor.selection = new Selection(
+          new Position(
+            editor.selection.active.line,
+            editor.selection.active.character
+          ),
+          new Position(
+            editor.selection.active.line,
+            editor.selection.active.character
+          )
+        );
 
         await editor.edit((b) => {
           b.replace(
