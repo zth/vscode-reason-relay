@@ -151,3 +151,30 @@ export async function loadRelayConfig(): Promise<RelayConfig | undefined> {
     return relayConfig;
   }
 }
+
+export async function isReasonRelayProject(): Promise<boolean> {
+  const [config, relayConfig] = await Promise.all([
+    loadGraphQLConfig(),
+    loadRelayConfig(),
+  ]);
+
+  if (config && relayConfig) {
+    try {
+      const configFilePath = config.getProject().filepath;
+      const pkgJson = require(path.join(
+        path.dirname(configFilePath),
+        "package.json"
+      ));
+
+      if (pkgJson) {
+        const deps = [
+          ...Object.keys(pkgJson.dependencies || {}),
+          ...Object.keys(pkgJson.peerDependencies || {}),
+        ];
+        return !!deps.find((d) => d === "reason-relay");
+      }
+    } catch {}
+  }
+
+  return false;
+}

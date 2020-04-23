@@ -82,6 +82,7 @@ import {
   cacheControl,
   loadRelayConfig,
   loadGraphQLConfig,
+  isReasonRelayProject,
 } from "./loadSchema";
 import { State } from "graphql-language-service-types";
 
@@ -1206,6 +1207,10 @@ function initLanguageServer(
 }
 
 export async function activate(context: ExtensionContext) {
+  if (!(await isReasonRelayProject())) {
+    return;
+  }
+
   let outputChannel: OutputChannel = window.createOutputChannel(
     "ReasonRelay GraphQL Language Server"
   );
@@ -1269,6 +1274,16 @@ export async function activate(context: ExtensionContext) {
     let relayCompilerOutputChannel: OutputChannel = window.createOutputChannel(
       "Relay Compiler"
     );
+
+    context.subscriptions.push(
+      commands.registerCommand(
+        "vscode-reason-relay.show-relay-compiler-output",
+        () => {
+          relayCompilerOutputChannel.show();
+        }
+      )
+    );
+
     let childProcess: cp.ChildProcessWithoutNullStreams | undefined;
 
     const item = window.createStatusBarItem(StatusBarAlignment.Right);
@@ -1281,6 +1296,13 @@ export async function activate(context: ExtensionContext) {
     function setStatusBarItemToStop() {
       item.text = "$(debug-stop) Relay Compiler is running...";
       item.command = "vscode-reason-relay.stop-compiler";
+      item.tooltip = "Click to stop";
+    }
+
+    function setStatusBarItemToWroteFiles() {
+      item.text = "$(debug-stop) $(check) Relay Compiler recompiled";
+      item.command = "vscode-reason-relay.show-relay-compiler-output";
+      item.tooltip = "Click to see full output";
     }
 
     setStatusBarItemToStart();
@@ -1332,10 +1354,10 @@ export async function activate(context: ExtensionContext) {
               // We don't want to alert that things changed if they didn't
               if (/(Created|Updated|Deleted):/g.test(str)) {
                 clearTimeout(statusBarMessageTimeout);
-                item.text = "$(debug-stop) $(check) Relay Compiler updated";
+                setStatusBarItemToWroteFiles();
                 statusBarMessageTimeout = setTimeout(() => {
                   setStatusBarItemToStop();
-                }, 4000);
+                }, 5000);
               }
             }
 
