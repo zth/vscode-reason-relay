@@ -117,21 +117,34 @@ export function makeFieldSelection(
 
 export function makeFirstFieldSelection(
   type: GraphQLObjectType | GraphQLInterfaceType
-): FieldNode {
+): FieldNode[] {
   const firstField = getFirstField(type);
   const fieldType = getNamedType(firstField.type);
+
+  const fieldNodes: FieldNode[] = [];
 
   if (
     fieldType instanceof GraphQLObjectType ||
     fieldType instanceof GraphQLInterfaceType ||
     fieldType instanceof GraphQLUnionType
   ) {
-    return makeFieldSelection(firstField.name, [
-      makeFieldSelection("__typename"),
-    ]);
+    if (
+      fieldType instanceof GraphQLInterfaceType ||
+      fieldType instanceof GraphQLUnionType
+    ) {
+      // Always include __typename for interfaces and unions
+      fieldNodes.push(makeFieldSelection("__typename"));
+    }
+
+    // Include sub selections automatically
+    fieldNodes.push(
+      makeFieldSelection(firstField.name, [makeFieldSelection("__typename")])
+    );
+
+    return fieldNodes;
   }
 
-  return makeFieldSelection(firstField.name);
+  return [makeFieldSelection(firstField.name)];
 }
 
 export function makeArgumentDefinitionVariable(
@@ -329,7 +342,7 @@ export async function makeFragment(
               const newNode: FragmentDefinitionNode = {
                 ...node,
                 selectionSet: makeSelectionSet([
-                  makeFirstFieldSelection(onType),
+                  ...makeFirstFieldSelection(onType),
                 ]),
               };
 
@@ -383,11 +396,9 @@ export async function makeOperation(
             selectionSet: makeSelectionSet([
               makeFieldSelection(
                 rootField.name,
-                rootFieldType instanceof GraphQLUnionType
+                rootFieldType instanceof GraphQLUnionType ||
+                  rootFieldType instanceof GraphQLInterfaceType
                   ? [makeFieldSelection("__typename")]
-                  : rootFieldType instanceof GraphQLInterfaceType ||
-                    rootFieldType instanceof GraphQLObjectType
-                  ? [makeFirstFieldSelection(rootFieldType)]
                   : undefined,
                 requiredArgs.map((a) =>
                   makeArgument(a.name, makeVariableNode(a.name))

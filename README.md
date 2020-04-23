@@ -41,6 +41,10 @@ Inside any GraphQL definition, select any number of fields, activate code action
 
 Place your cursor on a `connection` field (basically a field of any GraphQL type that ends with `Connection`). Activate code actions, and select `Set up pagination for fragment`. This will setup all needed directives on your fragment to enable pagination.
 
+#### Expand unions and interfaces
+
+Place your cursor on any field name of a field that's a union or interface, activate code actions, and select `Expand union/interface`. The full union with all members will be expanded for you.
+
 #### Make fragment refetchable
 
 With the cursor in a fragment definition, activate code actions and select `Make fragment refetchable`. This will add the `@refetchable` directive to the fragment, with a suitable `queryName` preconfigured, making it possible to refetch the fragment.

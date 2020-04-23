@@ -67,6 +67,7 @@ import {
   GraphQLUnionType,
   SelectionSetNode,
   InlineFragmentNode,
+  GraphQLInterfaceType,
 } from "graphql";
 import {
   loadFullSchema,
@@ -477,13 +478,22 @@ function initHoverProviders() {
         }
       }
 
-      if (t && t instanceof GraphQLUnionType && state.kind === "Field") {
+      if (
+        t &&
+        (t instanceof GraphQLUnionType || t instanceof GraphQLInterfaceType) &&
+        state.kind === "Field"
+      ) {
         let isExpanded = false;
 
         visit(parsedOp, {
           Field(node) {
             runOnNodeAtPos(source, node, startPos, (n) => {
-              if (n.selectionSet && n.selectionSet.selections.length > 0) {
+              if (
+                n.selectionSet &&
+                n.selectionSet.selections.filter(
+                  (s) => s.kind === "FragmentSpread"
+                ).length > 0
+              ) {
                 isExpanded = true;
               }
 
@@ -493,12 +503,14 @@ function initHoverProviders() {
         });
 
         if (!isExpanded) {
-          const expandUnion = new CodeAction(
-            `Expand union on "${state.name}"`,
+          const expand = new CodeAction(
+            `Expand ${
+              t instanceof GraphQLUnionType ? "union" : "interface"
+            } on "${state.name}"`,
             CodeActionKind.RefactorRewrite
           );
 
-          expandUnion.edit = makeReplaceOperationEdit(
+          expand.edit = makeReplaceOperationEdit(
             document.uri,
             selectedOp,
             visit(parsedOp, {
@@ -512,36 +524,36 @@ function initHoverProviders() {
                     },
                   };
 
-                  const memberNodes: InlineFragmentNode[] = Object.values(
-                    t.getTypes()
-                  ).map(
-                    (member: GraphQLObjectType): InlineFragmentNode => {
-                      const firstField = getFirstField(member);
+                  const memberNodes: InlineFragmentNode[] = schema
+                    .getPossibleTypes(t)
+                    .map(
+                      (member: GraphQLObjectType): InlineFragmentNode => {
+                        const firstField = getFirstField(member);
 
-                      return {
-                        kind: "InlineFragment",
-                        typeCondition: {
-                          kind: "NamedType",
-                          name: {
-                            kind: "Name",
-                            value: member.name,
-                          },
-                        },
-                        selectionSet: {
-                          kind: "SelectionSet",
-                          selections: [
-                            {
-                              kind: "Field",
-                              name: {
-                                kind: "Name",
-                                value: firstField.name,
-                              },
+                        return {
+                          kind: "InlineFragment",
+                          typeCondition: {
+                            kind: "NamedType",
+                            name: {
+                              kind: "Name",
+                              value: member.name,
                             },
-                          ],
-                        },
-                      };
-                    }
-                  );
+                          },
+                          selectionSet: {
+                            kind: "SelectionSet",
+                            selections: [
+                              {
+                                kind: "Field",
+                                name: {
+                                  kind: "Name",
+                                  value: firstField.name,
+                                },
+                              },
+                            ],
+                          },
+                        };
+                      }
+                    );
 
                   const selectionSet: SelectionSetNode = {
                     kind: "SelectionSet",
@@ -557,7 +569,7 @@ function initHoverProviders() {
             })
           );
 
-          actions.push(expandUnion);
+          actions.push(expand);
         }
       }
 
