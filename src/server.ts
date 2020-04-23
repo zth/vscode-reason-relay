@@ -8,7 +8,7 @@ import { createGraphQLConfig } from "./graphqlConfig";
   try {
     await startServer({
       method: "node",
-      config: createGraphQLConfig(process.env.ROOT_DIR || ""),
+      config: createGraphQLConfig(process.env.ROOT_DIR || "", true),
       parser: (doc: string) => {
         const sources = extractGraphQLSources("reason", doc);
 
