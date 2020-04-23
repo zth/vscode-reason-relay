@@ -1,5 +1,7 @@
 ## master
 
+## 0.3.1
+
 - Adding fragments/queries/mutations/subscriptions is now done properly through ASTs, which will increase the stability of using them quite a lot.
 
 ## 0.3.0
