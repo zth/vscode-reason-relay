@@ -1111,12 +1111,12 @@ export async function activate(context: ExtensionContext) {
     }
 
     function setStatusBarItemToStart() {
-      setStatusBarItemText("$(debug-start) Start the Relay compiler");
+      setStatusBarItemText("$(debug-start) Start Relay compiler");
       item.command = "vscode-reason-relay.start-compiler";
     }
 
     function setStatusBarItemToStop() {
-      setStatusBarItemText("$(debug-stop) Relay Compiler is running...");
+      setStatusBarItemText("$(debug-stop) Relay Compiler running");
       item.command = "vscode-reason-relay.stop-compiler";
       item.tooltip = "Click to stop";
     }
