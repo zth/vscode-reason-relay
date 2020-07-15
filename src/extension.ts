@@ -802,8 +802,7 @@ function initCommands(context: ExtensionContext): void {
                   };
 
                   return {
-                    loc: node.loc,
-                    kind: node.kind,
+                    ...node,
                     selections: [
                       newFragmentSelection,
                       ...node.selections.reduce(
