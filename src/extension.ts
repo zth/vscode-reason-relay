@@ -41,6 +41,7 @@ import {
   restoreOperationPadding,
   uncapitalize,
   capitalize,
+  wrapInJsx,
 } from "./extensionUtils";
 import {
   extractGraphQLSources,
@@ -925,6 +926,24 @@ let make = (~${uncapitalize(typeInfo.parentTypeName)}) => {
     ),
     commands.registerCommand("vscode-reason-relay.add-subscription", () =>
       addGraphQLComponent("Subscription")
+    ),
+    commands.registerCommand(
+      "vscode-reason-relay.wrap-in-suspense-boundary",
+      () => {
+        const start = `<React.Suspense fallback={<div />}>`;
+        const end = `</React.Suspense>`;
+
+        wrapInJsx(start, end, start.indexOf("<div />"));
+      }
+    ),
+    commands.registerCommand(
+      "vscode-reason-relay.wrap-in-suspense-list",
+      () => {
+        const start = `<React.SuspenseList revealOrder=\`forwards>`;
+        const end = `</React.SuspenseList>`;
+
+        wrapInJsx(start, end, start.length);
+      }
     )
   );
 }

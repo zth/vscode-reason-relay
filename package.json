@@ -70,6 +70,18 @@
         "title": "Add subscription",
         "category": "ReasonRelay",
         "when": "editorLangId == reason"
+      },
+      {
+        "command": "vscode-reason-relay.wrap-in-suspense-boundary",
+        "title": "Wrap in suspense boundary",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
+      },
+      {
+        "command": "vscode-reason-relay.wrap-in-suspense-list",
+        "title": "Wrap in suspense list",
+        "category": "ReasonRelay",
+        "when": "editorLangId == reason"
       }
     ],
     "languages": [

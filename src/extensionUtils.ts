@@ -1,12 +1,13 @@
 import * as prettier from "prettier/standalone";
 import * as parserGraphql from "prettier/parser-graphql";
+import { window, commands, Range, Selection } from "vscode";
 
 export function prettify(str: string): string {
   return (
     prettier
       .format(str, {
         parser: "graphql",
-        plugins: [parserGraphql]
+        plugins: [parserGraphql],
       })
       /**
        * Prettier adds a new line to the output by design.
@@ -58,7 +59,46 @@ export function uncapitalize(str: string): string {
 }
 
 export function waitFor(time: number): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     setTimeout(resolve, time);
   });
+}
+
+export async function wrapInJsx(
+  start: string,
+  end: string,
+  endSelectionOffset: number
+) {
+  const textEditor = window.activeTextEditor;
+
+  if (textEditor) {
+    const [currentSelection] = textEditor.selections;
+    const hasSelectedRange = !currentSelection.start.isEqual(
+      currentSelection.end
+    );
+
+    if (!hasSelectedRange) {
+      await commands.executeCommand("editor.emmet.action.balanceOut");
+    }
+
+    const [first] = textEditor.selections;
+
+    if (!first.start.isEqual(first.end)) {
+      const selectedRange = new Range(first.start, first.end);
+      const text = textEditor.document.getText(selectedRange);
+
+      await textEditor.edit((editBuilder) => {
+        editBuilder.replace(selectedRange, `${start}${text}${end}`);
+      });
+
+      const endPos = first.start.with(
+        undefined,
+        first.start.character + endSelectionOffset
+      );
+
+      const endSelection = new Selection(endPos, endPos);
+
+      textEditor.selections = [endSelection];
+    }
+  }
 }
