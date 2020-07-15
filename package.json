@@ -1,7 +1,7 @@
 {
   "name": "vscode-reason-relay",
   "description": "Improve quality-of-life of using ReasonRelay with VSCode.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "main": "./build/extension.js",
   "engines": {
     "vscode": "^1.30.0"
