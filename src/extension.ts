@@ -1101,47 +1101,40 @@ export async function activate(context: ExtensionContext) {
 
     const item = window.createStatusBarItem(StatusBarAlignment.Right);
 
+    function setStatusBarItemText(text: string) {
+      const lastText = item.text;
+      item.text = text;
+
+      return () => {
+        item.text = lastText;
+      };
+    }
+
     function setStatusBarItemToStart() {
-      item.text = "$(debug-start) Start the Relay compiler";
+      setStatusBarItemText("$(debug-start) Start the Relay compiler");
       item.command = "vscode-reason-relay.start-compiler";
     }
 
     function setStatusBarItemToStop() {
-      item.text = "$(debug-stop) Relay Compiler is running...";
+      setStatusBarItemText("$(debug-stop) Relay Compiler is running...");
       item.command = "vscode-reason-relay.stop-compiler";
       item.tooltip = "Click to stop";
     }
 
     function setStatusBarItemToWroteFiles() {
-      item.text = "$(debug-stop) $(check) Relay Compiler recompiled";
+      setStatusBarItemText("$(debug-stop) $(check) Relay Compiler recompiled");
+      item.command = "vscode-reason-relay.show-relay-compiler-output";
+      item.tooltip = "Click to see full output";
+    }
+
+    function setStatusBarItemToError() {
+      setStatusBarItemText("$(error) Error!");
       item.command = "vscode-reason-relay.show-relay-compiler-output";
       item.tooltip = "Click to see full output";
     }
 
     setStatusBarItemToStart();
     item.show();
-
-    function showRelayCompilerMessage(
-      message: string,
-      type: "warning" | "information" = "information"
-    ) {
-      (type === "information"
-        ? window.showInformationMessage(
-            `${message}\n\n[See full compiler output.](${Uri.parse(
-              "command:vscode-reason-relay.show-relay-compiler-output"
-            )})`
-          )
-        : window.showWarningMessage(
-            `${message}\n\n[See full compiler output.](${Uri.parse(
-              "command:vscode-reason-relay.show-relay-compiler-output"
-            )})`
-          )
-      ).then((m) => {
-        if (m) {
-          relayCompilerOutputChannel.show();
-        }
-      });
-    }
 
     context.subscriptions.push(
       relayCompilerOutputChannel,
@@ -1166,9 +1159,10 @@ export async function activate(context: ExtensionContext) {
 
             if (/(Created|Updated|Deleted|Unchanged):/g.test(str)) {
               if (hasHadError) {
-                window.showInformationMessage(
-                  "Relay Compiler: Back to normal."
-                );
+                setStatusBarItemText("$(check) Back to normal");
+                setTimeout(() => {
+                  setStatusBarItemToStop();
+                }, 3000);
                 hasHadError = false;
               }
 
@@ -1178,7 +1172,7 @@ export async function activate(context: ExtensionContext) {
                 setStatusBarItemToWroteFiles();
                 statusBarMessageTimeout = setTimeout(() => {
                   setStatusBarItemToStop();
-                }, 5000);
+                }, 3000);
               }
             }
 
@@ -1193,10 +1187,7 @@ export async function activate(context: ExtensionContext) {
               );
 
               if (error && error[0]) {
-                showRelayCompilerMessage(
-                  "Relay Compiler error:\n\n" + error[0].trim(),
-                  "warning"
-                );
+                setStatusBarItemToError();
 
                 // Reset error buffer
                 errorBuffer = undefined;
