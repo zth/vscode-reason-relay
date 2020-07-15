@@ -509,7 +509,7 @@ function initHoverProviders() {
           const expand = new CodeAction(
             `Expand ${
               t instanceof GraphQLUnionType ? "union" : "interface"
-            } on "${state.name}"`,
+            } members on "${state.name}"`,
             CodeActionKind.RefactorRewrite
           );
 
